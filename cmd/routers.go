@@ -110,6 +110,8 @@ func configureServerHandler(endpoints EndpointList) (http.Handler, error) {
 		// routes them accordingly. Client receives a HTTP error for
 		// invalid/unsupported signatures.
 		setAuthHandler,
+		// Keeps track of all incoming connections.
+		setConnRequestHandler,
 		// Add new handlers here.
 	}
 

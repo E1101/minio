@@ -17,6 +17,8 @@
 package cmd
 
 import (
+	"context"
+	"log"
 	"os"
 	"os/exec"
 	"syscall"
@@ -65,8 +67,12 @@ func restartProcess() error {
 	return cmd.Start()
 }
 
+const globalGracefulHTTPTimeout = 10 * time.Second
+
 // Handles all serviceSignal and execute service functions.
-func (m *ServerMux) handleServiceSignals() error {
+func handleServiceSignals() error {
+	ctx, cancel := context.WithTimeout(context.Background(), globalGracefulHTTPTimeout)
+
 	// Custom exit function
 	runExitFn := func(err error) {
 		// If global profiler is set stop before we exit.
@@ -79,7 +85,10 @@ func (m *ServerMux) handleServiceSignals() error {
 
 		// We are usually done here, close global service done channel.
 		globalServiceDoneCh <- struct{}{}
+
+		cancel()
 	}
+
 	// Wait for SIGTERM in a go-routine.
 	trapCh := signalTrap(os.Interrupt, syscall.SIGTERM)
 	go func(trapCh <-chan bool) {
@@ -94,7 +103,7 @@ func (m *ServerMux) handleServiceSignals() error {
 		case serviceStatus:
 			/// We don't do anything for this.
 		case serviceRestart:
-			if err := m.Close(); err != nil {
+			if err := globalHTTPServer.Shutdown(ctx); err != nil {
 				errorIf(err, "Unable to close server gracefully")
 			}
 			if err := restartProcess(); err != nil {
@@ -107,7 +116,7 @@ func (m *ServerMux) handleServiceSignals() error {
 				time.Sleep(serverShutdownPoll + time.Millisecond*100)
 				log.Println("Waiting for active connections to terminate - press Ctrl+C to quit immediately.")
 			}()
-			if err := m.Close(); err != nil {
+			if err := globalHTTPServer.Shutdown(ctx); err != nil {
 				errorIf(err, "Unable to close server gracefully")
 			}
 			objAPI := newObjectLayerFn()

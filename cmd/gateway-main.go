@@ -355,19 +355,18 @@ func gatewayMain(ctx *cli.Context, backendType gatewayBackend) {
 		// routes them accordingly. Client receives a HTTP error for
 		// invalid/unsupported signatures.
 		setAuthHandler,
+		// Keeps track of all incoming connections.
+		setConnRequestHandler,
 		// Add new handlers here.
 
 	}
 
-	apiServer := NewServerMux(ctx.String("address"), registerHandlers(router, handlerFns...))
+	globalMinioAddr = ctx.String("address")
+	globalHTTPServer = NewServer(globalMinioAddr, registerHandlers(router, handlerFns...))
 
 	// Start server, automatically configures TLS if certs are available.
 	go func() {
-		cert, key := "", ""
-		if globalIsSSL {
-			cert, key = getPublicCertFile(), getPrivateKeyFile()
-		}
-		fatalIf(apiServer.ListenAndServe(cert, key), "Failed to start minio server")
+		fatalIf(globalHTTPServer.ListenAndServe(), "Failed to start minio server")
 	}()
 
 	// Once endpoints are finalized, initialize the new object api.
@@ -391,7 +390,7 @@ func gatewayMain(ctx *cli.Context, backendType gatewayBackend) {
 		checkUpdate(mode)
 
 		// Print gateway startup message.
-		printGatewayStartupMessage(getAPIEndpoints(apiServer.Addr), backendType)
+		printGatewayStartupMessage(getAPIEndpoints(globalMinioAddr), backendType)
 	}
 
 	<-globalServiceDoneCh

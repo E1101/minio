@@ -126,6 +126,8 @@ var (
 	globalActiveCred         credential
 	globalPublicCerts        []*x509.Certificate
 	globalXLObjCacheDisabled bool
+
+	globalHTTPServer *Server
 	// Add new variable global values here.
 )
 

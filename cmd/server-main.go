@@ -180,7 +180,7 @@ func serverMain(ctx *cli.Context) {
 	fatalIf(err, "Unable to configure one of server's RPC services.")
 
 	// Initialize a new HTTP server.
-	apiServer := NewServerMux(globalMinioAddr, handler)
+	globalHTTPServer = NewServer(globalMinioAddr, handler)
 
 	// Initialize S3 Peers inter-node communication only in distributed setup.
 	initGlobalS3Peers(globalEndpoints)
@@ -190,11 +190,7 @@ func serverMain(ctx *cli.Context) {
 
 	// Start server, automatically configures TLS if certs are available.
 	go func() {
-		cert, key := "", ""
-		if globalIsSSL {
-			cert, key = getPublicCertFile(), getPrivateKeyFile()
-		}
-		fatalIf(apiServer.ListenAndServe(cert, key), "Failed to start minio server.")
+		fatalIf(globalHTTPServer.ListenAndServe(), "Failed to start minio server.")
 	}()
 
 	newObject, err := newObjectLayer(globalEndpoints)
@@ -205,7 +201,7 @@ func serverMain(ctx *cli.Context) {
 	globalObjLayerMutex.Unlock()
 
 	// Prints the formatted startup message once object layer is initialized.
-	apiEndpoints := getAPIEndpoints(apiServer.Addr)
+	apiEndpoints := getAPIEndpoints(globalMinioAddr)
 	printStartupMessage(apiEndpoints)
 
 	// Set uptime time after object layer has initialized.
